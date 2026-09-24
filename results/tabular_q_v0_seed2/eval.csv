@@ -1,0 +1,4 @@
+run_id,algo,encoder,reward,train_opponent,seed,opponent,win_rate,n_battles
+tabular_q_v0_seed2,tabular_q,v0,shaped,heuristic,2,random,57.0,500
+tabular_q_v0_seed2,tabular_q,v0,shaped,heuristic,2,max_power,10.0,500
+tabular_q_v0_seed2,tabular_q,v0,shaped,heuristic,2,heuristic,2.2,500

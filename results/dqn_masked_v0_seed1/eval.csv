@@ -1,0 +1,4 @@
+run_id,algo,encoder,reward,train_opponent,seed,opponent,win_rate,n_battles
+dqn_masked_v0_seed1,dqn_masked,v0,shaped,heuristic,1,random,86.8,500
+dqn_masked_v0_seed1,dqn_masked,v0,shaped,heuristic,1,max_power,44.4,500
+dqn_masked_v0_seed1,dqn_masked,v0,shaped,heuristic,1,heuristic,12.4,500

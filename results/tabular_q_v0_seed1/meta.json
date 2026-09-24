@@ -1,0 +1,6 @@
+{
+  "run_id": "tabular_q_v0_seed1",
+  "train_seconds": 875.6,
+  "states_visited": 6987,
+  "episodes": 9396
+}

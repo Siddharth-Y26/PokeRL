@@ -1,0 +1,4 @@
+run_id,algo,encoder,reward,train_opponent,seed,opponent,win_rate,n_battles
+ppo_masked_v0_aggressive_seed2,ppo_masked,v0,aggressive,heuristic,2,random,97.2,500
+ppo_masked_v0_aggressive_seed2,ppo_masked,v0,aggressive,heuristic,2,max_power,70.6,500
+ppo_masked_v0_aggressive_seed2,ppo_masked,v0,aggressive,heuristic,2,heuristic,29.2,500

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PokeRL — live battle spectator</title>
+<!--
+  Watch the training battles running on the local Showdown server.
+
+  Why this file exists
+  --------------------
+  The local server ships no UI: server/static/index.html just redirects localhost:8000 to the
+  hosted client at psim.us. That hosted client is served over HTTPS, so it can only open a
+  wss:// socket, while the local server speaks plain ws://. Browsers block that combination,
+  which is why the hosted client reports "can't connect to server".
+
+  This page has no such problem. Opened from disk (file://) or over plain http it is allowed to
+  open ws://localhost:8000 directly, so it talks to the local server with nothing in between.
+
+  It is read-only. It joins battles as a spectator and never sends a move.
+
+  Usage: just open this file in a browser while the server is running.
+-->
+<style>
+  :root {
+    --bg: #161a20; --panel: #1e232b; --line: #39414d; --text: #e7ebf0;
+    --dim: #93a0b4; --ok: #6ddb8f; --warn: #f0b429; --p1: #6bb8f0; --p2: #f0806b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-columns: 300px 1fr; height: 100vh;
+  }
+  #sidebar { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  #head { padding: 12px; border-bottom: 1px solid var(--line); }
+  #head h1 { margin: 0 0 4px; font-size: 15px; }
+  #status { font-size: 11px; color: var(--dim); }
+  #status.ok { color: var(--ok); } #status.warn { color: var(--warn); }
+  #list { overflow-y: auto; flex: 1; }
+  .room {
+    padding: 8px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 12px;
+  }
+  .room:hover { background: #252b34; }
+  .room.active { background: #2d3540; border-left: 3px solid var(--ok); }
+  .room .tag { color: var(--dim); font-size: 10px; }
+  #main { display: flex; flex-direction: column; overflow: hidden; }
+  #title { padding: 10px 14px; border-bottom: 1px solid var(--line); font-weight: 600; }
+  #log { flex: 1; overflow-y: auto; padding: 12px 14px; font-size: 13px; }
+  .turn { margin: 12px 0 6px; font-weight: 700; color: var(--warn); border-top: 1px solid var(--line); padding-top: 8px; }
+  .ev { margin: 2px 0; }
+  .p1 { color: var(--p1); } .p2 { color: var(--p2); }
+  .faint { color: var(--warn); font-weight: 600; }
+  .win { color: var(--ok); font-weight: 700; font-size: 15px; margin-top: 10px; }
+  .dimmed { color: var(--dim); }
+  #empty { color: var(--dim); padding: 24px 14px; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <div id="head">
+    <h1>PokeRL spectator</h1>
+    <div id="status">connecting…</div>
+  </div>
+  <div id="list"></div>
+</div>
+<div id="main">
+  <div id="title">No battle selected</div>
+  <div id="log"><div id="empty">Pick a battle on the left. The list refreshes every few seconds.</div></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var SERVER = 'ws://localhost:8000/showdown/websocket';
+  var REFRESH_MS = 4000;
+
+  var socket = null, joined = null, refreshTimer = null;
+  var statusEl = document.getElementById('status');
+  var listEl = document.getElementById('list');
+  var logEl = document.getElementById('log');
+  var titleEl = document.getElementById('title');
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = cls || '';
+  }
+
+  function connect() {
+    socket = new WebSocket(SERVER);
+
+    socket.onopen = function () { setStatus('connected to localhost:8000', 'ok'); };
+
+    socket.onmessage = function (event) {
+      var data = event.data;
+      var room = '';
+      if (data.charAt(0) === '>') {
+        var nl = data.indexOf('\n');
+        room = data.slice(1, nl);
+        data = data.slice(nl + 1);
+      }
+      data.split('\n').forEach(function (line) { handle(room, line); });
+    };
+
+    socket.onclose = function () {
+      setStatus('disconnected — is the server running? retrying…', 'warn');
+      clearInterval(refreshTimer);
+      setTimeout(connect, 3000);
+    };
+  }
+
+  function handle(room, line) {
+    if (!line || line.charAt(0) !== '|') return;
+    var parts = line.split('|');
+    var type = parts[1];
+
+    // --no-security lets any name be claimed without authentication.
+    if (type === 'challstr') {
+      socket.send('|/trn spectator' + Math.floor(Math.random() * 100000) + ',0,');
+      requestRooms();
+      refreshTimer = setInterval(requestRooms, REFRESH_MS);
+      return;
+    }
+
+    if (type === 'queryresponse' && parts[2] === 'roomlist') {
+      try { renderRooms(JSON.parse(parts.slice(3).join('|')).rooms || {}); } catch (e) {}
+      return;
+    }
+
+    if (room && room === joined) renderEvent(parts);
+  }
+
+  function requestRooms() {
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send('|/cmd roomlist');
+  }
+
+  function renderRooms(rooms) {
+    var tags = Object.keys(rooms).sort();
+    if (!tags.length) {
+      listEl.innerHTML = '<div class="room dimmed">No battles running.</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    tags.forEach(function (tag) {
+      var info = rooms[tag] || {};
+      var div = document.createElement('div');
+      div.className = 'room' + (tag === joined ? ' active' : '');
+      div.innerHTML = '<div>' + esc(info.p1 || '?') + ' vs ' + esc(info.p2 || '?') + '</div>'
+                    + '<div class="tag">' + esc(tag) + '</div>';
+      div.onclick = function () { join(tag); };
+      listEl.appendChild(div);
+    });
+  }
+
+  function join(tag) {
+    if (joined) socket.send('|/leave ' + joined);
+    joined = tag;
+    titleEl.textContent = tag;
+    logEl.innerHTML = '';
+    socket.send('|/join ' + tag);
+    requestRooms();
+  }
+
+  function esc(text) {
+    var div = document.createElement('div');
+    div.textContent = text == null ? '' : String(text);
+    return div.innerHTML;
+  }
+
+  // "p1a: Rotom-Wash" -> just the nickname, tagged with which side owns it.
+  function who(raw) {
+    if (!raw) return { name: '', cls: '' };
+    var idx = raw.indexOf(': ');
+    var side = raw.slice(0, 2);
+    return {
+      name: idx === -1 ? raw : raw.slice(idx + 2),
+      cls: side === 'p1' ? 'p1' : 'p2'
+    };
+  }
+
+  function add(html, cls) {
+    var div = document.createElement('div');
+    div.className = cls || 'ev';
+    div.innerHTML = html;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function named(raw) {
+    var w = who(raw);
+    return '<span class="' + w.cls + '">' + esc(w.name) + '</span>';
+  }
+
+  function renderEvent(parts) {
+    var type = parts[1];
+
+    switch (type) {
+      case 'turn':
+        add('Turn ' + esc(parts[2]), 'turn');
+        break;
+      case 'move':
+        add(named(parts[2]) + ' used <b>' + esc(parts[3]) + '</b>');
+        break;
+      case 'switch':
+      case 'drag':
+        add(named(parts[2]) + ' came in <span class="dimmed">('
+            + esc((parts[4] || '').split(' ')[0]) + ')</span>');
+        break;
+      case '-damage':
+      case '-heal':
+        var hp = (parts[3] || '').split(' ')[0];
+        add(named(parts[2]) + ' &rarr; <span class="dimmed">' + esc(hp) + '</span>');
+        break;
+      case 'faint':
+        add(named(parts[2]) + ' fainted', 'ev faint');
+        break;
+      case '-status':
+        add(named(parts[2]) + ' is now ' + esc(parts[3]));
+        break;
+      case '-supereffective':
+        add('<span class="dimmed">It was super effective</span>');
+        break;
+      case '-resisted':
+        add('<span class="dimmed">It was resisted</span>');
+        break;
+      case '-immune':
+        add(named(parts[2]) + ' <span class="dimmed">was immune</span>');
+        break;
+      case '-crit':
+        add('<span class="dimmed">Critical hit</span>');
+        break;
+      case '-boost':
+      case '-unboost':
+        add(named(parts[2]) + ' ' + (type === '-boost' ? 'raised' : 'lowered')
+            + ' its ' + esc(parts[3]) + ' by ' + esc(parts[4]));
+        break;
+      case '-weather':
+        if (parts[2] && parts[2] !== 'none') add('<span class="dimmed">Weather: ' + esc(parts[2]) + '</span>');
+        break;
+      case '-sidestart':
+        add('<span class="dimmed">' + esc(parts[3]) + ' set on ' + esc(parts[2]) + '</span>');
+        break;
+      case 'win':
+        add(esc(parts[2]) + ' won', 'win');
+        break;
+      case 'tie':
+        add('Tie', 'win');
+        break;
+    }
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>

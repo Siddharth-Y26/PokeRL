@@ -1,0 +1,16 @@
+# Tiny run used to validate the training path end-to-end before committing to the matrix.
+name: smoke
+algo: ppo_masked
+encoder: v0
+reward: shaped
+train_opponent: random
+battle_format: gen9randombattle
+
+total_timesteps: 2048
+num_envs: 2
+seed: 0
+device: cpu
+
+n_steps: 512
+batch_size: 64
+eval_battles: 20

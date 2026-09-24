@@ -1,0 +1,23 @@
+# Core
+poke-env==0.15.0
+stable-baselines3==2.9.0
+sb3-contrib==2.9.0
+torch==2.13.0
+
+# Config / experiment plumbing
+pyyaml==6.0.3
+tensorboard==2.21.0
+
+# Analysis
+pandas==3.0.5
+matplotlib==3.11.1
+
+# Live coach. poke-env already pulls websockets in, but pokerl.coach.server imports it
+# directly, so it is declared rather than relied on as a transitive dependency.
+websockets==16.0
+
+# NOTE: PyPI's Windows torch wheel is CPU-only (2.13.0+cpu).
+# The v0 experiments are intentionally CPU-bound (the Node.js Showdown simulator is the
+# bottleneck, not the network), so this is the correct default.
+# For the v1 rich-encoder runs, install the CUDA build instead:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126

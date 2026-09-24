@@ -1,0 +1,4 @@
+run_id,algo,encoder,reward,train_opponent,seed,opponent,win_rate,n_battles
+sanity_ppo_masked_seed0,ppo_masked,v0,shaped,random,0,random,96.5,200
+sanity_ppo_masked_seed0,ppo_masked,v0,shaped,random,0,max_power,64.0,200
+sanity_ppo_masked_seed0,ppo_masked,v0,shaped,random,0,heuristic,20.0,200

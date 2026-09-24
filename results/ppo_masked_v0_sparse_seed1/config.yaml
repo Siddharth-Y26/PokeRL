@@ -1,0 +1,24 @@
+name: ppo_masked_v0_sparse
+algo: ppo_masked
+encoder: v0
+reward: sparse
+train_opponent: heuristic
+battle_format: gen9randombattle
+total_timesteps: 300000
+num_envs: 6
+seed: 1
+device: cpu
+learning_rate: 0.0003
+gamma: 0.99
+batch_size: 128
+n_steps: 3072
+ent_coef: 0.01
+net_arch:
+- 64
+- 64
+buffer_size: 50000
+learning_starts: 1000
+target_update_interval: 500
+exploration_fraction: 0.3
+exploration_final_eps: 0.05
+eval_battles: 500
